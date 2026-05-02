@@ -1,69 +1,109 @@
-# Prerequisites
-*.d
+#include <Adafruit_Fingerprint.h>
+#include <SoftwareSerial.h>
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+SoftwareSerial mySerial(2, 3);
+Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 
-# Precompiled Headers
-*.gch
-*.pch
+uint8_t id;
 
-# Linker files
-*.ilk
+// ================= SETUP =================
+void setup()
+{
+  Serial.begin(9600);
+  delay(1000);
 
-# Debugger Files
-*.pdb
+  Serial.println("=== MODE ENROLL SIDIK JARI ===");
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-*.so.*
+  finger.begin(57600); // kalau error → ganti 9600
 
+  if (finger.verifyPassword())
+  {
+    Serial.println("Sensor SIAP");
+  }
+  else
+  {
+    Serial.println("Sensor ERROR!");
+    while (1);
+  }
 
-# Fortran module files
-*.mod
-*.smod
+  Serial.println("Masukkan ID (1 - 127):");
+}
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+// ================= LOOP =================
+void loop()
+{
+  if (Serial.available())
+  {
+    id = Serial.parseInt();
 
-# Executables
-*.exe
-*.out
-*.app
+    if (id == 0)
+    {
+      Serial.println("ID tidak valid, coba lagi!");
+      return;
+    }
 
-# Build directories
-build/
-Build/
-build-*/
+    Serial.print("Mendaftarkan ID: ");
+    Serial.println(id);
 
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
+    enrollFinger(id);
+  }
+}
 
-# Temporary files
-*.tmp
-*.log
-*.bak
-*.swp
+// ================= ENROLL FUNCTION =================
+uint8_t enrollFinger(uint8_t id)
+{
+  int p = -1;
 
-# vcpkg
-vcpkg_installed/
+  Serial.println("Tempelkan jari...");
+  while (p != FINGERPRINT_OK)
+  {
+    p = finger.getImage();
+  }
 
-# debug information files
-*.dwo
+  Serial.println("Gambar diambil");
 
-# test output & cache
-Testing/
-.cache/
+  p = finger.image2Tz(1);
+  if (p != FINGERPRINT_OK)
+  {
+    Serial.println("Gagal convert");
+    return p;
+  }
+
+  Serial.println("Angkat jari...");
+  delay(2000);
+
+  Serial.println("Tempel lagi jari yang sama...");
+  p = 0;
+  while (p != FINGERPRINT_OK)
+  {
+    p = finger.getImage();
+  }
+
+  Serial.println("Gambar kedua diambil");
+
+  p = finger.image2Tz(2);
+  if (p != FINGERPRINT_OK)
+  {
+    Serial.println("Gagal convert ke-2");
+    return p;
+  }
+
+  p = finger.createModel();
+  if (p != FINGERPRINT_OK)
+  {
+    Serial.println("Gagal membuat model");
+    return p;
+  }
+
+  p = finger.storeModel(id);
+  if (p == FINGERPRINT_OK)
+  {
+    Serial.println("✔ BERHASIL ENROLL!");
+  }
+  else
+  {
+    Serial.println("✖ GAGAL MENYIMPAN");
+  }
+
+  return p;
+}
